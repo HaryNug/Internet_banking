@@ -11,7 +11,7 @@ migrate = Migrate(app, db)
 class Branch(db.Model):
     __tablename__ = "branch"
 
-    branch_id = db.Column(db.Integer, autoincrement=True, unique=True, primary_key=True, nullable=False)
+    branch_id = db.Column(db.Integer, autoincrement=True, primary_key=True)
     name = db.Column(db.String, unique=True, nullable=False)
     address = db.Column(db.String, nullable=False)
     
@@ -21,7 +21,7 @@ class Branch(db.Model):
 class User(db.Model):
     __tablename__ = "user"
 
-    user_id = db.Column(db.Integer, autoincrement= True, unique=True, primary_key=True, nullable=False)
+    user_id = db.Column(db.Integer, autoincrement= True, primary_key=True)
     branch_id = db.Column(db.Integer, db.ForeignKey('branch.branch_id'), nullable=False)
     name = db.Column(db.String, nullable=False)
     telp = db.Column(db.String, unique=True, nullable=False)
@@ -35,7 +35,7 @@ class User(db.Model):
 class Account(db.Model):
     __tablename__ = "account"
 
-    account_id = db.Column(db.Integer, autoincrement=True, unique=True, primary_key=True, nullable=False)
+    account_id = db.Column(db.Integer, autoincrement=True, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
     branch_id = db.Column(db.Integer, db.ForeignKey('branch.branch_id'), nullable=False)
     status = db.Column(db.String, nullable=False)
@@ -49,8 +49,8 @@ class Account(db.Model):
 class Accountivity(db.Model):
     __tablename__ = "account_activity"
 
-    activity_id = db.Column(db.Integer, autoincrement=True, unique=True, nullable=False)
-    account_id = db.Column(db.Integer, db.ForeignKey('account.account_id'), primary_key=True, nullable=False)
+    activity_id = db.Column(db.Integer, autoincrement=True, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey('account.account_id'), nullable=False)
     activity_date = db.Column(db.DateTime, nullable=False)
     credit = db.Column(db.Integer, nullable=True)
     debit = db.Column(db.Integer, nullable=True)
@@ -188,15 +188,15 @@ def post_account():
             last_update = datetime.today())
         db.session.add(new_account)
         db.session.commit()
+        print("zzzzzz",new_account.account_id)
         new_activity = Accountivity(
             account_id = new_account.account_id,
             activity_date = datetime.today(),
             credit = data['credit'],
-            saldo = data['credit']
-        )
+            saldo = data['credit'])
         db.session.add(new_activity)
         db.session.commit()
-        return {"message": f"congratulation {new_account.account_id} for becoming our new admin😚"}
+        return {"message": f"congratulation new account with id {new_account.account_id} succesfully created😚"}
     return {"message": "invalid request"}
 
 if (__name__) == ("__main__"):
