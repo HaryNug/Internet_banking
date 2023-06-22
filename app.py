@@ -94,6 +94,22 @@ def register():
         type = "member")
     db.session.add(new_member)
     db.session.commit()
+    new_account = Account(
+        user_id = new_member.user_id,
+        branch_id = data['branch_id'],
+        status = "active",
+        type = data['type'],
+        saldo = data['credit'],
+        last_update = datetime.today())
+    db.session.add(new_account)
+    db.session.commit()
+    new_activity = Accountivity(
+        account_id = new_account.account_id,
+        activity_date = datetime.today(),
+        credit = data['credit'],
+        saldo = data['credit'])
+    db.session.add(new_activity)
+    db.session.commit()
     return {"message": f"congratulation {new_member.name} for becoming our new member😚"}
 
 @app.put('/member/<int:user_id>')
@@ -163,13 +179,13 @@ def post_admin():
 def put_admin(user_id):
     user = login()
     if user.type == "admin" and user.user_id == user_id :
-        member =User.query.get(user_id)
+        admin =User.query.get(user_id)
         data = request.get_json()
-        member.branch_id = data.get("branch_id", member.branch_id)
-        member.name = data.get("name", member.name)
-        member.telp = data.get("telp", member.telp)
-        member.email = data.get("email", member.email)
-        member.password = data.get("password", member.password)
+        admin.branch_id = data.get("branch_id", admin.branch_id)
+        admin.name = data.get("name", admin.name)
+        admin.telp = data.get("telp", admin.telp)
+        admin.email = data.get("email", admin.email)
+        admin.password = data.get("password", admin.password)
         db.session.commit()
         return {"message": "your account successfully updated"}
     return {"message": "invalid request"}
@@ -188,7 +204,6 @@ def post_account():
             last_update = datetime.today())
         db.session.add(new_account)
         db.session.commit()
-        print("zzzzzz",new_account.account_id)
         new_activity = Accountivity(
             account_id = new_account.account_id,
             activity_date = datetime.today(),
@@ -198,6 +213,39 @@ def post_account():
         db.session.commit()
         return {"message": f"congratulation new account with id {new_account.account_id} succesfully created😚"}
     return {"message": "invalid request"}
+
+@app.put('/account/<int:account_id>')
+def put_account(account_id):
+    user = login()
+    account = Account.query.get(account_id)
+    if user.type == "member" and account.user_id == user.user_id :
+        data = request.get_json()
+        account.branch_id = data.get("branch_id", account.branch_id)
+        db.session.commit()
+        return {"message": "your account successfully updated"}
+    return {"message": "invalid request"}
+
+@app.put('/nonactive/<int:account_id>')
+def put_nonactive(account_id):
+    user = login()
+    account = Account.query.get(account_id)
+    if user.type == "member" and account.user_id == user.user_id :
+        account.status = "nonactive"
+        db.session.commit()
+        return {"message": "your account is nonactive"}
+    return {"message": "invalid request"}
+
+@app.put('/active/<int:account_id>')
+def put_active(account_id):
+    user = login()
+    account = Account.query.get(account_id)
+    if user.type == "admin" and account.branch_id == user.branch_id :
+        account.status = "active"
+        db.session.commit()
+        return {"message": f"account {account_id} is active"}
+    return {"message": "invalid request"}
+
+
 
 if (__name__) == ("__main__"):
     app.run(debug=True)
