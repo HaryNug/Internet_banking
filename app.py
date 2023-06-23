@@ -314,6 +314,25 @@ def post_transfer(account_id):
         return {"message": f"successfully tranfer {new_send.debit} to {new_send.receiver_id} now your balance : {new_send.saldo}"}
     return {"message": "invalid request"}
 
+@app.get('/history/<account_id>')
+def get_history(account_id):
+    user = login()
+    account = Account.query.get(account_id)
+    if user.type == "member" and account.user_id == user.user_id :
+        history = Accountivity.query.filter_by(account_id=account_id).all()
+        results = [
+            {
+                "activity_date" : r.activity_date,
+                "credit" : r.credit,
+                "debit" : r.debit,
+                "receiver_id" : r.receiver_id,
+                "sender_id" : r.sender_id,
+                "saldo" : r.saldo
+            } for r in history]
+        return jsonify(results)
+    return {"message": "invalid request"}
+
+
 
 if (__name__) == ("__main__"):
     app.run(debug=True)
