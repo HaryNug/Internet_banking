@@ -283,9 +283,36 @@ def post_withdraw(account_id):
         return {"message": f"successfully withdrawn {new_activity.debit} now your balance : {new_activity.saldo}"}
     return {"message": "invalid request"}
 
-
-
-
+@app.post('/transfer/<account_id>')
+def post_transfer(account_id):
+    user = login()
+    data = request.get_json()
+    sender = Account.query.get(account_id)
+    receiver = Account.query.get(data["receiver_id"])
+    if user.type == "member" and sender.user_id == user.user_id :    
+        sender.saldo -= data["transfer"]
+        sender.last_update = datetime.today()
+        db.session.commit()
+        new_send = Accountivity(
+            account_id = sender.account_id,
+            activity_date = datetime.today(),
+            debit = data["transfer"],
+            receiver_id = data["receiver_id"],
+            saldo = sender.saldo)    
+        db.session.add(new_send)
+        db.session.commit()
+        receiver.saldo += data["transfer"]
+        receiver.last_update = datetime.today()
+        new_receive = Accountivity(
+            account_id = data["receiver_id"],
+            activity_date = datetime.today(),
+            credit = data["transfer"],
+            sender_id = sender.account_id,
+            saldo = receiver.saldo)
+        db.session.add(new_receive)
+        db.session.commit()
+        return {"message": f"successfully tranfer {new_send.debit} to {new_send.receiver_id} now your balance : {new_send.saldo}"}
+    return {"message": "invalid request"}
 
 
 if (__name__) == ("__main__"):
