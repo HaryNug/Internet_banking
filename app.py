@@ -245,6 +245,47 @@ def put_active(account_id):
         return {"message": f"account {account_id} is active"}
     return {"message": "invalid request"}
 
+@app.post('/save/<account_id>')
+def post_save(account_id):
+    user = login()
+    account = Account.query.get(account_id)
+    if user.type == "member" and account.user_id == user.user_id :    
+        data = request.get_json()
+        account.saldo += data["credit"]
+        account.last_update = datetime.today()
+        db.session.commit()
+        new_activity = Accountivity(
+            account_id = account.account_id,
+            activity_date = datetime.today(),
+            credit = data["credit"],
+            saldo = account.saldo)   
+        db.session.add(new_activity)
+        db.session.commit()
+        return {"message": f"successfully saved {new_activity.credit} now your balance : {new_activity.saldo}"}
+    return {"message": "invalid request"}
+
+@app.post('/withdraw/<account_id>')
+def post_withdraw(account_id):
+    user = login()
+    account = Account.query.get(account_id)
+    if user.type == "member" and account.user_id == user.user_id :    
+        data = request.get_json()
+        account.saldo -= data["debit"]
+        account.last_update = datetime.today()
+        db.session.commit()
+        new_activity = Accountivity(
+            account_id = account.account_id,
+            activity_date = datetime.today(),
+            debit = data["debit"],
+            saldo = account.saldo)    
+        db.session.add(new_activity)
+        db.session.commit()
+        return {"message": f"successfully withdrawn {new_activity.debit} now your balance : {new_activity.saldo}"}
+    return {"message": "invalid request"}
+
+
+
+
 
 
 if (__name__) == ("__main__"):
