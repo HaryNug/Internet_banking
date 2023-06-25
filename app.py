@@ -273,6 +273,8 @@ def post_withdraw(account_id):
     account = Account.query.get(account_id)
     if user.type == "member" and account.user_id == user.user_id :    
         data = request.get_json()
+        if account.saldo - data["debit"] < 50000:
+            return {"error" : "your saldo is not enough"}
         account.saldo -= data["debit"]
         account.last_update = datetime.today()
         db.session.commit()
@@ -292,7 +294,9 @@ def post_transfer(account_id):
     data = request.get_json()
     sender = Account.query.get(account_id)
     receiver = Account.query.get(data["receiver_id"])
-    if user.type == "member" and sender.user_id == user.user_id :    
+    if user.type == "member" and sender.user_id == user.user_id : 
+        if sender.saldo - data["transfer"] < 50000:
+            return {"error" : "your saldo is not enough"}   
         sender.saldo -= data["transfer"]
         sender.last_update = datetime.today()
         db.session.commit()
