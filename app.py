@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from datetime import datetime
+from sqlalchemy.sql import func
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:hary300697@localhost:5432/Internet_banking'
@@ -42,6 +43,7 @@ class Account(db.Model):
     type = db.Column(db.String, nullable=False)
     saldo = db.Column(db.Integer, nullable=False)
     last_update = db.Column(db.DateTime, nullable=False)
+   
 
     def __repr__(self):
         return f"<Account{self.account_id}>"
@@ -57,6 +59,7 @@ class Accountivity(db.Model):
     receiver_id = db.Column(db.Integer, db.ForeignKey('account.account_id'), nullable=True)
     sender_id = db.Column(db.Integer, db.ForeignKey('account.account_id'), nullable=True)
     saldo = db.Column(db.Integer, nullable=False)
+
 
     def __repr__(self):
         return f"<Account activity{self.activity_id}>"
@@ -331,6 +334,32 @@ def get_history(account_id):
             } for r in history]
         return jsonify(results)
     return {"message": "invalid request"}
+
+@app.get('/branchreport/<int:branch_id>')
+def branch_report(branch_id):
+    user = login()
+    if user.type == "admin" and user.branch_id == branch_id :
+        data = request.get_json()
+        u = User.query.filter_by(branch_id=branch_id, type = "member").all()
+        a = Account.query.filter_by(branch_id=branch_id).all()
+        b = db.session.query(func.sum(Account.saldo)).filter_by(branch_id=branch_id)[0][0]
+        c, d = db.session.query(func.sum(Accountivity.credit), func.sum(Accountivity.debit))\
+            .join(Account, Accountivity.account_id == Account.account_id)\
+            .filter(Account.branch_id == branch_id, Accountivity.activity_date >= data['start_date'], Accountivity.activity_date <= data['end_date'])[0]
+        results = {
+                "branch_id" : branch_id,
+                "total_user" : len(u),
+                "total_account" : len(a),
+                "total_balance" : b,
+                "total_credit" : c,
+                "total_debit" : d,
+                "date" : {
+                    "start_date": data["start_date"],
+                    "end_date": data["end_date"]
+                    }
+            }
+        return jsonify(results)
+
 
 
 
