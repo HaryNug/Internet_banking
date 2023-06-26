@@ -40,10 +40,11 @@ class Account(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
     branch_id = db.Column(db.Integer, db.ForeignKey('branch.branch_id'), nullable=False)
     status = db.Column(db.String, nullable=False)
-    type = db.Column(db.String, nullable=False)
     saldo = db.Column(db.Integer, nullable=False)
     last_update = db.Column(db.DateTime, nullable=False)
-   
+    ever_dormant = db.Column(db.Boolean, nullable=True)
+    start_date = db.Column(db.DateTime, nullable=True)
+    end_date = db.Column(db.DateTime, nullable=True)
 
     def __repr__(self):
         return f"<Account{self.account_id}>"
@@ -101,7 +102,6 @@ def register():
         user_id = new_member.user_id,
         branch_id = data['branch_id'],
         status = "active",
-        type = data['type'],
         saldo = data['credit'],
         last_update = datetime.today())
     db.session.add(new_account)
@@ -202,7 +202,6 @@ def post_account():
             user_id = user.user_id,
             branch_id = data['branch_id'],
             status = "active",
-            type = data['type'],
             saldo = data['credit'],
             last_update = datetime.today())
         db.session.add(new_account)
@@ -243,6 +242,8 @@ def put_active(account_id):
     user = login()
     account = Account.query.get(account_id)
     if user.type == "admin" and account.branch_id == user.branch_id :
+        if account.status == "dormant":
+            account.end_date = datetime.today()
         account.status = "active"
         db.session.commit()
         return {"message": f"account {account_id} is active"}
@@ -273,6 +274,15 @@ def post_withdraw(account_id):
     account = Account.query.get(account_id)
     if user.type == "member" and account.user_id == user.user_id :    
         data = request.get_json()
+        days_diff = (datetime.today()-account.last_update).days
+        if account.status == "nonactive":
+            return {"error" : "your account is nonactive please contact admin to reactivate"}  
+        if account.status == "dormant" or days_diff > 90 :
+            account.status = "dormant"
+            account.ever_dormant = True
+            account.start_date = account.last_update
+            db.session.commit()
+            return {"error" : "your account is dormant please contact admin to reactivate"}
         if account.saldo - data["debit"] < 50000:
             return {"error" : "your saldo is not enough"}
         account.saldo -= data["debit"]
@@ -295,6 +305,15 @@ def post_transfer(account_id):
     sender = Account.query.get(account_id)
     receiver = Account.query.get(data["receiver_id"])
     if user.type == "member" and sender.user_id == user.user_id : 
+        days_diff = (datetime.today()-sender.last_update).days
+        if sender.status == "nonactive":
+            return {"error" : "your account is nonactive please contact admin to reactivate"}  
+        if sender.status == "dormant" or days_diff > 90 :
+            sender.status = "dormant"
+            sender.ever_dormant = True
+            sender.start_date = sender.last_update
+            db.session.commit()
+            return {"error" : "your account is dormant please contact admin to reactivate"}
         if sender.saldo - data["transfer"] < 50000:
             return {"error" : "your saldo is not enough"}   
         sender.saldo -= data["transfer"]
@@ -369,30 +388,20 @@ def dormant_report(branch_id):
     user = login()
     if user.type == "admin" and user.branch_id == branch_id:
         data = request.get_json()
-        list_account = Account.query.filter_by(branch_id=branch_id).all()
-        print(list_account)
-        list_dormant = []
-        for account in list_account :
-            # print(account)
-            if (datetime.today()- account.last_update).days > 90 :
-                list_dormant.append(account)
-                account.status = "dormant"
-        print(list_dormant[0].status)
-                
+        list_dormant = Account.query.filter_by(branch_id=branch_id, ever_dormant=True).all()
         results = [
             {
                 "account_id" : acc.account_id,
                 "user_id" : acc.user_id,
-                "last_update" : acc.last_update,
+                "last_activity" : acc.last_update,
                 "status" : acc.status,
-                "dormant_periode" : {
-                    "start_date" : acc.last_update + timedelta(days=90),
-                    "end_date" : None
+                "dormant_period" : {
+                    "start_date" : acc.start_date,
+                    "end_date" : acc.end_date
                 }
             } for acc in list_dormant]
         db.session.commit()
         return jsonify(results)
-
 
 if (__name__) == ("__main__"):
     app.run(debug=True)
