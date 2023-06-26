@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.sql import func
 
 app = Flask(__name__)
@@ -364,7 +364,34 @@ def branch_report(branch_id):
             }
         return jsonify(results)
 
-
+@app.get('/dormantreport/<int:branch_id>')
+def dormant_report(branch_id):
+    user = login()
+    if user.type == "admin" and user.branch_id == branch_id:
+        data = request.get_json()
+        list_account = Account.query.filter_by(branch_id=branch_id).all()
+        print(list_account)
+        list_dormant = []
+        for account in list_account :
+            # print(account)
+            if (datetime.today()- account.last_update).days > 90 :
+                list_dormant.append(account)
+                account.status = "dormant"
+        print(list_dormant[0].status)
+                
+        results = [
+            {
+                "account_id" : acc.account_id,
+                "user_id" : acc.user_id,
+                "last_update" : acc.last_update,
+                "status" : acc.status,
+                "dormant_periode" : {
+                    "start_date" : acc.last_update + timedelta(days=90),
+                    "end_date" : None
+                }
+            } for acc in list_dormant]
+        db.session.commit()
+        return jsonify(results)
 
 
 if (__name__) == ("__main__"):
