@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from datetime import datetime, timedelta
+from datetime import datetime
 from sqlalchemy.sql import func
 
 app = Flask(__name__)
@@ -70,11 +70,11 @@ def login():
     data_password = request.authorization.password
     user = User.query.filter_by(
         email=data_email, password=data_password).first()
-
+    if not user :
+        return False
     if user:
         return user
-    else :
-        return {"error": "invalid request"}
+        
 
 @app.get('/')
 def home():
@@ -85,10 +85,10 @@ def register():
     data = request.get_json()
     valid_telp =  User.query.filter_by(telp=data["telp"]).first()
     if valid_telp :
-        return {"error": f"Telp with number {valid_telp.telp} is invalid or already exists"}
+        return {"error": f"Telp with number {valid_telp.telp} is invalid or already exists"},400
     valid_email =  User.query.filter_by(email=data["email"]).first()
     if valid_email :
-        return {"error": f"email with {valid_telp.email} is invalid or already exists"}
+        return {"error": f"email with {valid_telp.email} is invalid or already exists"},400
     new_member = User(
         branch_id = data['branch_id'],
         name = data['name'],
@@ -102,6 +102,7 @@ def register():
         user_id = new_member.user_id,
         branch_id = data['branch_id'],
         status = "active",
+        ever_dormant = False,
         saldo = data['credit'],
         last_update = datetime.today())
     db.session.add(new_account)
@@ -113,10 +114,12 @@ def register():
         saldo = data['credit'])
     db.session.add(new_activity)
     db.session.commit()
-    return {"message": f"congratulation {new_member.name} for becoming our new member😚"}
+    return {"message": f"congratulation {new_member.name} for becoming our new member"},201
 
 @app.put('/member/<int:user_id>')
 def put_member(user_id):
+    if not login():
+        return {"error": "invalid request"},400
     user = login()
     if user.type == "member" and user.user_id == user_id :
         member =User.query.get(user_id)
@@ -127,11 +130,15 @@ def put_member(user_id):
         member.email = data.get("email", member.email)
         member.password = data.get("password", member.password)
         db.session.commit()
-        return {"message": "your account successfully updated"}
-    return {"message": "invalid request"}
+        return {"message": "your account successfully updated"},200
+    else :
+        return {"message": "invalid request"},400
+
 
 @app.post('/branch')
 def post_branch():
+    if not login():
+        return {"error": "invalid request"},400
     user = login()
     if user.type == "admin" :
         data = request.get_json()
@@ -140,11 +147,13 @@ def post_branch():
             address = data['address'])
         db.session.add(new_branch)
         db.session.commit()
-        return {"message": f"congratulation {new_branch.name} successfully created😚"}
-    return {"message": "invalid request"}
+        return {"message": f"congratulation {new_branch.name} successfully created"},201
+    return {"message": "invalid request"},400
 
 @app.put('/branch/<int:branch_id>')
 def put_branch(branch_id):
+    if not login():
+        return {"error": "invalid request"},400
     user = login()
     if user.type == "admin" and user.branch_id == branch_id :
         branch =Branch.query.get(branch_id)
@@ -152,20 +161,22 @@ def put_branch(branch_id):
         branch.name = data.get("name", branch.name)
         branch.address = data.get("address", branch.address)
         db.session.commit()
-        return {"message": "branch successfully updated"}
-    return {"message": "invalid request"}
+        return {"message": "branch successfully updated"},200
+    return {"message": "invalid request"},400
 
 @app.post('/admin')
 def post_admin():
+    if not login():
+        return {"error": "invalid request"},400
     user = login()
     if user.type == "admin":    
         data = request.get_json()
         valid_telp =  User.query.filter_by(telp=data["telp"]).first()
         if valid_telp :
-            return {"error": f"Telp with number {valid_telp.telp} is invalid or already exists"}
+            return {"error": f"Telp with number {valid_telp.telp} is invalid or already exists"},400
         valid_email =  User.query.filter_by(email=data["email"]).first()
         if valid_email :
-            return {"error": f"email with {valid_telp.email} is invalid or already exists"}    
+            return {"error": f"email with {valid_telp.email} is invalid or already exists"},400    
         new_member = User(
             branch_id = user.branch_id,
             name = data['name'],
@@ -175,11 +186,13 @@ def post_admin():
             type = "admin")
         db.session.add(new_member)
         db.session.commit()
-        return {"message": f"congratulation {new_member.name} for becoming our new admin😚"}
-    return {"message": "invalid request"}
+        return {"message": f"congratulation {new_member.name} for becoming our new admin"},201
+    return {"message": "invalid request"},400
 
 @app.put('/admin/<int:user_id>')
 def put_admin(user_id):
+    if not login():
+        return {"error": "invalid request"},400
     user = login()
     if user.type == "admin" and user.user_id == user_id :
         admin =User.query.get(user_id)
@@ -190,11 +203,13 @@ def put_admin(user_id):
         admin.email = data.get("email", admin.email)
         admin.password = data.get("password", admin.password)
         db.session.commit()
-        return {"message": "your account successfully updated"}
-    return {"message": "invalid request"}
+        return {"message": "your account successfully updated"},200
+    return {"message": "invalid request"},400
 
 @app.post('/account')
 def post_account():
+    if not login():
+        return {"error": "invalid request"},400
     user = login()
     if user.type == "member":    
         data = request.get_json()
@@ -202,6 +217,7 @@ def post_account():
             user_id = user.user_id,
             branch_id = data['branch_id'],
             status = "active",
+            ever_dormant = False,
             saldo = data['credit'],
             last_update = datetime.today())
         db.session.add(new_account)
@@ -213,32 +229,38 @@ def post_account():
             saldo = data['credit'])
         db.session.add(new_activity)
         db.session.commit()
-        return {"message": f"congratulation new account with id {new_account.account_id} succesfully created😚"}
-    return {"message": "invalid request"}
+        return {"message": f"congratulation new account with id {new_account.account_id} succesfully created"},201
+    return {"message": "invalid request"},400
 
 @app.put('/account/<int:account_id>')
 def put_account(account_id):
+    if not login():
+        return {"error": "invalid request"},400
     user = login()
     account = Account.query.get(account_id)
     if user.type == "member" and account.user_id == user.user_id :
         data = request.get_json()
         account.branch_id = data.get("branch_id", account.branch_id)
         db.session.commit()
-        return {"message": "your account successfully updated"}
-    return {"message": "invalid request"}
+        return {"message": "your account successfully updated"},200
+    return {"message": "invalid request"},400
 
 @app.put('/nonactive/<int:account_id>')
 def put_nonactive(account_id):
+    if not login():
+        return {"error": "invalid request"},400
     user = login()
     account = Account.query.get(account_id)
     if user.type == "member" and account.user_id == user.user_id :
         account.status = "nonactive"
         db.session.commit()
-        return {"message": "your account is nonactive"}
-    return {"message": "invalid request"}
+        return {"message": "your account is nonactive"},200
+    return {"message": "invalid request"},400
 
 @app.put('/active/<int:account_id>')
 def put_active(account_id):
+    if not login():
+        return {"error": "invalid request"},400
     user = login()
     account = Account.query.get(account_id)
     if user.type == "admin" and account.branch_id == user.branch_id :
@@ -246,15 +268,27 @@ def put_active(account_id):
             account.end_date = datetime.today()
         account.status = "active"
         db.session.commit()
-        return {"message": f"account {account_id} is active"}
-    return {"message": "invalid request"}
+        return {"message": f"account {account_id} is active"},200
+    return {"message": "invalid request"},400
 
 @app.post('/save/<account_id>')
 def post_save(account_id):
+    if not login():
+        return {"error": "invalid request"},400
     user = login()
     account = Account.query.get(account_id)
     if user.type == "member" and account.user_id == user.user_id :    
         data = request.get_json()
+        days_diff = (datetime.today()-account.last_update).days
+        if account.status == "nonactive":
+            return {"error" : "your account is nonactive please contact admin to reactivate"},400  
+        if account.status == "dormant" or days_diff > 90 :
+            account.status = "dormant"
+            account.ever_dormant = True
+            account.start_date = account.last_update
+            account.end_date = None
+            db.session.commit()
+            return {"error" : "your account is dormant please contact admin to reactivate"},400
         account.saldo += data["credit"]
         account.last_update = datetime.today()
         db.session.commit()
@@ -265,26 +299,29 @@ def post_save(account_id):
             saldo = account.saldo)   
         db.session.add(new_activity)
         db.session.commit()
-        return {"message": f"successfully saved {new_activity.credit} now your balance : {new_activity.saldo}"}
-    return {"message": "invalid request"}
+        return {"message": f"successfully saved {new_activity.credit} now your balance : {new_activity.saldo}"},201
+    return {"message": "invalid request"},400
 
 @app.post('/withdraw/<account_id>')
 def post_withdraw(account_id):
+    if not login():
+        return {"error": "invalid request"},400
     user = login()
     account = Account.query.get(account_id)
     if user.type == "member" and account.user_id == user.user_id :    
         data = request.get_json()
         days_diff = (datetime.today()-account.last_update).days
         if account.status == "nonactive":
-            return {"error" : "your account is nonactive please contact admin to reactivate"}  
+            return {"error" : "your account is nonactive please contact admin to reactivate"},400  
         if account.status == "dormant" or days_diff > 90 :
             account.status = "dormant"
             account.ever_dormant = True
             account.start_date = account.last_update
+            account.end_date = None
             db.session.commit()
-            return {"error" : "your account is dormant please contact admin to reactivate"}
+            return {"error" : "your account is dormant please contact admin to reactivate"},400
         if account.saldo - data["debit"] < 50000:
-            return {"error" : "your saldo is not enough"}
+            return {"error" : "your saldo is not enough"},400
         account.saldo -= data["debit"]
         account.last_update = datetime.today()
         db.session.commit()
@@ -295,11 +332,13 @@ def post_withdraw(account_id):
             saldo = account.saldo)    
         db.session.add(new_activity)
         db.session.commit()
-        return {"message": f"successfully withdrawn {new_activity.debit} now your balance : {new_activity.saldo}"}
-    return {"message": "invalid request"}
+        return {"message": f"successfully withdrawn {new_activity.debit} now your balance : {new_activity.saldo}"},201
+    return {"message": "invalid request"},400
 
 @app.post('/transfer/<account_id>')
 def post_transfer(account_id):
+    if not login():
+        return {"error": "invalid request"},400
     user = login()
     data = request.get_json()
     sender = Account.query.get(account_id)
@@ -307,18 +346,21 @@ def post_transfer(account_id):
     if user.type == "member" and sender.user_id == user.user_id : 
         days_diff = (datetime.today()-sender.last_update).days
         if sender.status == "nonactive":
-            return {"error" : "your account is nonactive please contact admin to reactivate"}  
+            return {"error" : "your account is nonactive please contact admin to reactivate"},400  
         if sender.status == "dormant" or days_diff > 90 :
             sender.status = "dormant"
             sender.ever_dormant = True
             sender.start_date = sender.last_update
+            sender.end_date = None
             db.session.commit()
-            return {"error" : "your account is dormant please contact admin to reactivate"}
+            return {"error" : "your account is dormant please contact admin to reactivate"},400
         if sender.saldo - data["transfer"] < 50000:
-            return {"error" : "your saldo is not enough"}   
+            return {"error" : "your saldo is not enough"},400   
         sender.saldo -= data["transfer"]
         sender.last_update = datetime.today()
         db.session.commit()
+        if receiver.status == "nonactive":
+            return {"error" : "the receiver is nonactive"}
         new_send = Accountivity(
             account_id = sender.account_id,
             activity_date = datetime.today(),
@@ -337,11 +379,13 @@ def post_transfer(account_id):
             saldo = receiver.saldo)
         db.session.add(new_receive)
         db.session.commit()
-        return {"message": f"successfully tranfer {new_send.debit} to {new_send.receiver_id} now your balance : {new_send.saldo}"}
-    return {"message": "invalid request"}
+        return {"message": f"successfully tranfer {new_send.debit} to {new_send.receiver_id} now your balance : {new_send.saldo}"},201
+    return {"message": "invalid request"},400
 
 @app.get('/history/<account_id>')
 def get_history(account_id):
+    if not login():
+        return {"error": "invalid request"},400
     user = login()
     account = Account.query.get(account_id)
     if user.type == "member" and account.user_id == user.user_id :
@@ -355,11 +399,13 @@ def get_history(account_id):
                 "sender_id" : r.sender_id,
                 "saldo" : r.saldo
             } for r in history]
-        return jsonify(results)
-    return {"message": "invalid request"}
+        return jsonify(results),200
+    return {"message": "invalid request"},400
 
 @app.get('/branchreport/<int:branch_id>')
 def branch_report(branch_id):
+    if not login():
+        return {"error": "invalid request"},400
     user = login()
     if user.type == "admin" and user.branch_id == branch_id :
         data = request.get_json()
@@ -381,14 +427,27 @@ def branch_report(branch_id):
                     "end_date": data["end_date"]
                     }
             }
-        return jsonify(results)
+        return jsonify(results),200
+    return {"message": "invalid request"},400
 
 @app.get('/dormantreport/<int:branch_id>')
 def dormant_report(branch_id):
+    if not login():
+        return {"error": "invalid request"},400
     user = login()
     if user.type == "admin" and user.branch_id == branch_id:
-        data = request.get_json()
+        list_dormant_false = Account.query.filter_by(branch_id=branch_id, ever_dormant=False).all()
         list_dormant = Account.query.filter_by(branch_id=branch_id, ever_dormant=True).all()
+
+        for acc in list_dormant_false :
+            days_diff = (datetime.today()-acc.last_update).days
+            if days_diff > 90 :
+                acc.status = "dormant"
+                acc.ever_dormant = True
+                acc.start_date = acc.last_update
+                acc.end_date = None
+                list_dormant.append(acc)
+        db.session.commit()
         results = [
             {
                 "account_id" : acc.account_id,
@@ -401,7 +460,8 @@ def dormant_report(branch_id):
                 }
             } for acc in list_dormant]
         db.session.commit()
-        return jsonify(results)
+        return jsonify(results),200
+    return {"message": "invalid request"},400
 
 if (__name__) == ("__main__"):
     app.run(debug=True)
