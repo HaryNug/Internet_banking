@@ -83,6 +83,8 @@ def home():
 @app.post('/member')
 def register():
     data = request.get_json()
+    if data['credit'] < 50000 :
+        return {"message": "initial deposit must be more than 50000 "},400
     valid_telp =  User.query.filter_by(telp=data["telp"]).first()
     if valid_telp :
         return {"error": f"Telp with number {valid_telp.telp} is invalid or already exists"},400
@@ -213,6 +215,8 @@ def post_account():
     user = login()
     if user.type == "member":    
         data = request.get_json()
+        if data['credit'] < 50000 :
+            return {"message": "initial deposit must be more than 50000 "},400
         new_account = Account(
             user_id = user.user_id,
             branch_id = data['branch_id'],
